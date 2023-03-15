@@ -3,13 +3,16 @@
     This file contains useful utility processes and setup systems that are implemented elsewhere in the
     MICE-C system.
 """
-import struct
-import numpy as np
 import logging as log
-import pathlib as pt
-from cnfg import read_config,__configuration_path
 import os
+import pathlib as pt
+import struct
 from datetime import datetime
+
+import numpy as np
+import toml
+from cnfg import read_config, __configuration_path
+
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
 # ------------------------------------------------------ Variables ------------------------------------------------------#
 # --|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--|--#
@@ -18,22 +21,29 @@ CONFIG = read_config(__configuration_path)  # reads the configuration file.
 _dbg_string = "%s:" % (_filename)
 __output_log_type = None
 
+# Header Constants
+#--------------------------------#
+header_typing = {"mass_array":list,
+                 "time":float,
+                 "redshift":float,
+                 "flag_sfr":int,
+                 "flag_cooling":int,
+                 "flag_feedback":int,
+                 "num_files":int,
+                 "boxsize":float,
+                 "omega0":float,
+                 "omega_lambda":float,
+                 "hubble_param":float,
+                 "flag_age":int,
+                 "flag_metals":int
 
-# Setting DBG levels #
-lvls = {
-    "debug": 10,
-    "info": 20,
-    "warning": 30,
-    "error": 40,
-    "critical": 50
 }
 
-
-#----------------------------------------------------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------------------------------------------------#
 #                                                                                                                      #
 #                                                 LOGGING AND DEBUGGING                                                #
 #                                                                                                                      #
-#----------------------------------------------------------------------------------------------------------------------#
+# ----------------------------------------------------------------------------------------------------------------------#
 class CustomFormatter(log.Formatter):
     """
     Custom logging formatter for file logging.
@@ -41,10 +51,10 @@ class CustomFormatter(log.Formatter):
     format = CONFIG["SYSTEM"]["LOGGING"]["log_format"]
 
     FORMATS = {
-        log.DEBUG: format,
-        log.INFO: format,
-        log.WARNING: format,
-        log.ERROR: format,
+        log.DEBUG   : format,
+        log.INFO    : format,
+        log.WARNING : format,
+        log.ERROR   : format,
         log.CRITICAL: format
     }
 
@@ -52,6 +62,7 @@ class CustomFormatter(log.Formatter):
         log_fmt = self.FORMATS.get(record.levelno)
         formatter = log.Formatter(log_fmt)
         return formatter.format(record)
+
 
 def set_log(script_name: str,
             level=CONFIG["SYSTEM"]["LOGGING"]["level"],
@@ -75,19 +86,20 @@ def set_log(script_name: str,
                               "%s.log" % datetime.now().strftime('%m-%d-%Y_%H-%M-%S')))
     handler_sh_file.setFormatter(CustomFormatter())
     log.basicConfig(handlers=[handler_sh_file], level=level)
-    log.info("%sset_log: Initialized log. level=%s." % (_dbg_string,level))
-
+    log.info("%sset_log: Initialized log. level=%s." % (_dbg_string, level))
 
     mpl_logger = log.getLogger('matplotlib')
     mpl_logger.setLevel(log.WARNING)
     stream_logger = log.getLogger("PIL")
     stream_logger.setLevel(log.WARNING)
-#----------------------------------------------------------------------------------------------------------------------#
+
+
+# ----------------------------------------------------------------------------------------------------------------------#
 #                                                                                                                      #
 #                                                   BINARY INTERACTIONS                                                #
 #                                                                                                                      #
-#----------------------------------------------------------------------------------------------------------------------#
-def read_header(n_part:list)->str:
+# ----------------------------------------------------------------------------------------------------------------------#
+def read_header(n_part: list) -> str:
     """
     Generates and packs the header information for GADGET-2 type files into a set of binary packed data.
 
@@ -111,7 +123,7 @@ def read_header(n_part:list)->str:
     # Introductory debugging
     # ------------------------------------------------------------------------------------------------------------------#
     fdbg_string = "%s:read_header: " % _dbg_string
-    log.debug("%sReading header data for n_part = %s." % (fdbg_string,n_part))
+    log.debug("%sReading header data for n_part = %s." % (fdbg_string, n_part))
 
     # Setup
     # ------------------------------------------------------------------------------------------------------------------#
@@ -170,7 +182,7 @@ def read_header(n_part:list)->str:
     return packed_data
 
 
-def write_dummy(f, values_list:list):
+def write_dummy(f, values_list: list):
     """
     Writes a dummy byte sequence to the variable.
     Parameters
@@ -206,7 +218,7 @@ def write_block(f, block_data, data_type, block_name):
     # Setup and Debug
     # ------------------------------------------------------------------------------------------------------------------#
     fdbg_string = "%s:write_block: " % _dbg_string
-    log.debug("%sWriting block %s." % (fdbg_string,block_name))
+    log.debug("%sWriting block %s." % (fdbg_string, block_name))
 
     # Writing the block
     # ------------------------------------------------------------------------------------------------------------------#
@@ -248,7 +260,7 @@ def write_snapshot(n_part, data_list, outfile='init.dat',
     # Setup and Debug
     # ------------------------------------------------------------------------------------------------------------------#
     fdbg_string = "%s:write_snapshot: " % _dbg_string
-    log.debug("%sWriting the snapshot to %s." % (fdbg_string,outfile))
+    log.debug("%sWriting the snapshot to %s." % (fdbg_string, outfile))
 
     # Partitioning data and setting up
     # ------------------------------------------------------------------------------------------------------------------#
@@ -291,6 +303,60 @@ def write_snapshot(n_part, data_list, outfile='init.dat',
 
     else:
         raise ValueError(f'{file_format} is not a supported file format.')
+
+
+# ----------------------------------------------------------------------------------------------------------------------#
+#                                                                                                                      #
+#                                              CONFIG FILE MANIPULATION                                                #
+#                                                                                                                      #
+# ----------------------------------------------------------------------------------------------------------------------#
+def read_configuration_file(filepath: str) -> list:
+    """
+    reads a configuration file located at ``filepath`` and pulls the data out in the prefered format for this work.
+    :param filepath: The path to the intended file.
+    :return: [header,{data}]
+    """
+    # Intro debugging
+    # ------------------------------------------------------------------------------------------------------------------#
+    fdbg_string = "%sread_configuration_file: "
+    log.debug("%sAttempting to read a configuration file at %s." % (fdbg_string, filepath))
+
+    #------------------------------------------------------------------------------------------------------------------#
+    #       Loading data, checking headers, forcing compliance                                                         #
+    #------------------------------------------------------------------------------------------------------------------#
+
+    #- Opening the file -#
+    try:
+        configuration_data = toml.load(filepath)
+    except FileNotFoundError as msg:
+        raise OSError("%s Handeled by exception ->"%repr(msg))
+    except toml.TomlDecodeError as msg:
+        raise SyntaxError("%s Handeled by exception ->" % repr(msg))
+
+    #- checking the header -#------------------------------------------------------------------------------------------#
+
+    ##- Existence -##
+    if "HEADER" not in configuration_data:
+        raise SyntaxError("%sFailed to locate HEADER in the configuration file."%fdbg_string)
+
+    header = configuration_data["HEADER"]
+
+    ##- Type Coercion -##
+    missing_headers = [i for i in header_typing if i not in header]
+
+    if len(missing_headers):
+        raise SyntaxError("%sFailed to find header kwargs %s in the configuration file at %s."%(fdbg_string,missing_headers,filepath))
+
+    for key, value in header:
+        header[key] = header_typing[key](value)
+
+    #- Checking the Components -#--------------------------------------------------------------------------------------#
+    components = [i for i in configuration_data if i != "HEADER"]
+    log.debug("%sFound %s components: %s."%(fdbg_string,len(components),components))
+
+
+
+
 
 
 if __name__ == '__main__':

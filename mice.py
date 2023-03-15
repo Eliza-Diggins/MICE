@@ -55,6 +55,8 @@ def go_exit():
 
 # CORE FUNCTIONS
 #----------------------------------------------------------------------------------------------------------------------#
+def write_output(data):
+    pass
 def generate_cluster(dataset:dict,MOND=False):
     # Intro Debugging
     #------------------------------------------------------------------------------------------------------------------#
@@ -197,9 +199,19 @@ if __name__ == '__main__':
     #------------------------------------------------------------------------------------------------------------------#
     print("%s Generating the cluster"%fdbg_string)
 
-    generate_cluster(user_configuration)
+    data = generate_cluster(user_configuration)
 
     print("%s Cluster Generation Complete!"%fdbg_string)
+
+    #------------------------------------------------------------------------------------------------------------------#
+    #                                   Producing the Outputs                                                          #
+    #------------------------------------------------------------------------------------------------------------------#
+    print("%s Writing the output file..."%fdbg_string,end="")
+
+    write_output(data)
+
+    print(done_string)
+
 
 
 
