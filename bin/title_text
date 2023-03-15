@@ -1,0 +1,14 @@
+ _/_/        _/_/   _/_/_/_/_/      _/_/_/_/    _/_/_/_/_/_/                 _/_/_/_/
+ _/  _/    _/  _/       _/        _/            _/                         _/
+ _/    _/_/    _/       _/       _/             _/                        _/
+ _/            _/       _/       _/             _/_/_/         _/_/_/_/   _/
+ _/            _/       _/        _/            _/                         _/
+ _/            _/   _/_/_/_/_/      _/_/_/_/    _/_/_/_/_/_/                 _/_/_/_/
+#-------------------------------------------------------------------------------------#
+                MOND Initial Conditions Environment for Galaxy Clusters
+
+       Written by: Eliza Diggins, University of Utah Dept. of Physics and Astronomy
+
+                   Adapted From CLUSTEP (Ruggiero & Lima-Neto, 2017)
+                         https://github.com/ruggiero/clustep
+#--------------------------------------------------------------------------------------#
